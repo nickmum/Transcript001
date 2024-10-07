@@ -24,15 +24,16 @@ namespace Transcript001
             httpClient = new HttpClient();
         }
 
-        public async Task ProcessVideoAsync(string url, string format)
+        public async Task<string> ProcessVideoAsync(string url, string format)
         {
             string outputDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "subs");
             Directory.CreateDirectory(outputDir);
 
             try
             {
-                await ProcessSingleVideoAsync(url, outputDir, format);
+                string videoId = await ProcessSingleVideoAsync(url, outputDir, format);
                 ProgressUpdated?.Invoke(this, 1);
+                return videoId;
             }
             catch (Exception ex)
             {
@@ -41,9 +42,15 @@ namespace Transcript001
             }
         }
 
-        private async Task ProcessSingleVideoAsync(string url, string outputDir, string format)
+        private async Task<string> ProcessSingleVideoAsync(string url, string outputDir, string format)
         {
             LogMessage($"Processing: {url}");
+
+            string videoId = ExtractVideoId(url);
+            if (string.IsNullOrEmpty(videoId))
+            {
+                throw new Exception("Invalid YouTube URL");
+            }
 
             string htmlContent = await httpClient.GetStringAsync(url);
             var htmlDocument = new HtmlDocument();
@@ -85,6 +92,27 @@ namespace Transcript001
             else
             {
                 LogMessage($"No subtitles available for: {fileName}");
+            }
+
+            return videoId;
+        }
+
+        private string ExtractVideoId(string url)
+        {
+            var uri = new Uri(url);
+            var query = HttpUtility.ParseQueryString(uri.Query);
+
+            if (uri.Host == "youtu.be")
+            {
+                return uri.Segments.LastOrDefault();
+            }
+            else if (query.AllKeys.Contains("v"))
+            {
+                return query["v"];
+            }
+            else
+            {
+                return null;
             }
         }
 
