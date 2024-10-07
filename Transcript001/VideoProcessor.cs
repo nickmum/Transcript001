@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Xml;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace Transcript001
 {
@@ -23,14 +24,14 @@ namespace Transcript001
             httpClient = new HttpClient();
         }
 
-        public async Task ProcessVideoAsync(string url)
+        public async Task ProcessVideoAsync(string url, string format)
         {
             string outputDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "subs");
             Directory.CreateDirectory(outputDir);
 
             try
             {
-                await ProcessSingleVideoAsync(url, outputDir);
+                await ProcessSingleVideoAsync(url, outputDir, format);
                 ProgressUpdated?.Invoke(this, 1);
             }
             catch (Exception ex)
@@ -40,7 +41,7 @@ namespace Transcript001
             }
         }
 
-        private async Task ProcessSingleVideoAsync(string url, string outputDir)
+        private async Task ProcessSingleVideoAsync(string url, string outputDir, string format)
         {
             LogMessage($"Processing: {url}");
 
@@ -72,7 +73,7 @@ namespace Transcript001
                 if (captionTrack != null)
                 {
                     string baseUrl = captionTrack["baseUrl"].ToString();
-                    string subtitles = await DownloadSubtitlesAsync(baseUrl);
+                    string subtitles = await DownloadSubtitlesAsync(baseUrl, format);
                     File.WriteAllText(Path.Combine(outputDir, $"{fileName}.txt"), subtitles);
                     LogMessage($"Saved subtitles for: {fileName}");
                 }
@@ -87,22 +88,54 @@ namespace Transcript001
             }
         }
 
-        private async Task<string> DownloadSubtitlesAsync(string url)
+        private async Task<string> DownloadSubtitlesAsync(string url, string format)
         {
             string xmlContent = await httpClient.GetStringAsync(url);
             XmlDocument doc = new XmlDocument();
             doc.LoadXml(xmlContent);
             XmlNodeList nodes = doc.SelectNodes("/transcript/text");
 
-            List<string> subtitleLines = new List<string>();
+            List<SubtitleEntry> subtitleEntries = new List<SubtitleEntry>();
 
             foreach (XmlNode node in nodes)
             {
+                double start = Convert.ToDouble(node.Attributes["start"].Value);
+                double duration = Convert.ToDouble(node.Attributes["dur"].Value);
                 string text = HttpUtility.HtmlDecode(node.InnerText);
-                subtitleLines.Add(text);
+                subtitleEntries.Add(new SubtitleEntry(start, duration, text));
             }
 
-            return string.Join(Environment.NewLine, subtitleLines);
+            switch (format)
+            {
+                case "Time-stamped Text":
+                    return FormatTimeStampedText(subtitleEntries);
+                case "YouTube Original":
+                    return FormatYouTubeOriginal(subtitleEntries);
+                default:
+                    return FormatPlainText(subtitleEntries);
+            }
+        }
+
+        private string FormatPlainText(List<SubtitleEntry> entries)
+        {
+            return string.Join(Environment.NewLine, entries.Select(e => e.Text));
+        }
+
+        private string FormatTimeStampedText(List<SubtitleEntry> entries)
+        {
+            return string.Join(Environment.NewLine, entries.Select(e => $"[{FormatTime(e.Start)}] {e.Text}"));
+        }
+
+        private string FormatYouTubeOriginal(List<SubtitleEntry> entries)
+        {
+            return string.Join(Environment.NewLine + Environment.NewLine, entries.Select(e =>
+                $"{FormatTime(e.Start)} - {FormatTime(e.Start + e.Duration)}{Environment.NewLine}{e.Text}"));
+        }
+
+        private string FormatTime(double seconds)
+        {
+            TimeSpan time = TimeSpan.FromSeconds(seconds);
+            return time.ToString(@"hh\:mm\:ss\.fff");
         }
 
         private string NormalizeFileName(string fileName)
@@ -113,6 +146,20 @@ namespace Transcript001
         private void LogMessage(string message)
         {
             LogUpdated?.Invoke(this, message);
+        }
+    }
+
+    public class SubtitleEntry
+    {
+        public double Start { get; }
+        public double Duration { get; }
+        public string Text { get; }
+
+        public SubtitleEntry(double start, double duration, string text)
+        {
+            Start = start;
+            Duration = duration;
+            Text = text;
         }
     }
 }

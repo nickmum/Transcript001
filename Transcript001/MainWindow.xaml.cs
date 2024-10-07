@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace Transcript001
 {
@@ -31,7 +32,8 @@ namespace Transcript001
 
             try
             {
-                await videoProcessor.ProcessVideoAsync(url);
+                string selectedFormat = (FormatComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
+                await videoProcessor.ProcessVideoAsync(url, selectedFormat);
                 StatusText.Text = "Processing complete";
             }
             catch (Exception ex)
