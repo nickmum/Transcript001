@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Web.WebView2.Core;
@@ -47,6 +48,9 @@ namespace Transcript001
                     DisplayVideo(videoId);
                 }
 
+                // Display the transcript in the LogTextBox
+                DisplayTranscript(selectedFormat);
+
                 StatusText.Text = "Processing complete";
             }
             catch (Exception ex)
@@ -77,6 +81,31 @@ namespace Transcript001
         private void VideoProcessor_LogUpdated(object sender, string message)
         {
             Dispatcher.Invoke(() => LogTextBox.AppendText(message + "\n"));
+        }
+
+        private void DisplayTranscript(string format)
+        {
+            string outputDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "subs");
+            string[] files = Directory.GetFiles(outputDir, "*.txt");
+
+            if (files.Length > 0)
+            {
+                // Get the most recently created file
+                string latestFile = files.OrderByDescending(f => new FileInfo(f).CreationTime).First();
+                string transcript = File.ReadAllText(latestFile);
+
+                Dispatcher.Invoke(() =>
+                {
+                    LogTextBox.AppendText("\n--- Transcript ---\n");
+                    LogTextBox.AppendText(transcript);
+                    LogTextBox.AppendText("\n--- End of Transcript ---\n");
+                    LogTextBox.ScrollToEnd();
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() => LogTextBox.AppendText("No transcript file found.\n"));
+            }
         }
     }
 }
