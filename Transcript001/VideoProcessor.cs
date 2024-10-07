@@ -1,10 +1,8 @@
 ﻿using HtmlAgilityPack;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web;
@@ -25,41 +23,24 @@ namespace Transcript001
             httpClient = new HttpClient();
         }
 
-        public async Task ProcessVideosAsync(List<string> videoUrls)
+        public async Task ProcessVideoAsync(string url)
         {
             string outputDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "subs");
             Directory.CreateDirectory(outputDir);
 
-            List<string> errors = new List<string>();
-            int processedCount = 0;
-
-            foreach (string url in videoUrls)
+            try
             {
-                try
-                {
-                    await ProcessVideoAsync(url, outputDir);
-                }
-                catch (Exception ex)
-                {
-                    errors.Add(url);
-                    LogMessage($"Error processing {url}: {ex.Message}");
-                }
-
-                processedCount++;
-                ProgressUpdated?.Invoke(this, processedCount);
+                await ProcessSingleVideoAsync(url, outputDir);
+                ProgressUpdated?.Invoke(this, 1);
             }
-
-            if (errors.Any())
+            catch (Exception ex)
             {
-                LogMessage($"Errors occurred for {errors.Count} videos:");
-                foreach (var errorUrl in errors)
-                {
-                    LogMessage(errorUrl);
-                }
+                LogMessage($"Error processing {url}: {ex.Message}");
+                throw;
             }
         }
 
-        private async Task ProcessVideoAsync(string url, string outputDir)
+        private async Task ProcessSingleVideoAsync(string url, string outputDir)
         {
             LogMessage($"Processing: {url}");
 
@@ -69,7 +50,6 @@ namespace Transcript001
 
             string jsonContent = htmlDocument.DocumentNode.SelectSingleNode("//script[contains(text(), 'ytInitialPlayerResponse')]").InnerHtml;
 
-            // Use regex to extract the JSON content
             var match = Regex.Match(jsonContent, @"ytInitialPlayerResponse\s*=\s*({.+?});");
             if (!match.Success)
             {
@@ -78,7 +58,7 @@ namespace Transcript001
 
             jsonContent = match.Groups[1].Value;
 
-            var videoDetails = JsonConvert.DeserializeObject<JObject>(jsonContent);
+            var videoDetails = JObject.Parse(jsonContent);
             string title = videoDetails["videoDetails"]["title"].ToString();
             string author = videoDetails["videoDetails"]["author"].ToString();
 
@@ -114,8 +94,15 @@ namespace Transcript001
             doc.LoadXml(xmlContent);
             XmlNodeList nodes = doc.SelectNodes("/transcript/text");
 
-            string subtitles = string.Join(" ", nodes.Cast<XmlNode>().Select(node => HttpUtility.HtmlDecode(node.InnerText)));
-            return subtitles;
+            List<string> subtitleLines = new List<string>();
+
+            foreach (XmlNode node in nodes)
+            {
+                string text = HttpUtility.HtmlDecode(node.InnerText);
+                subtitleLines.Add(text);
+            }
+
+            return string.Join(Environment.NewLine, subtitleLines);
         }
 
         private string NormalizeFileName(string fileName)
