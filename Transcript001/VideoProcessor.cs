@@ -24,16 +24,16 @@ namespace Transcript001
             httpClient = new HttpClient();
         }
 
-        public async Task<string> ProcessVideoAsync(string url, string format)
+        public async Task<(string videoId, List<SubtitleEntry> subtitles)> ProcessVideoAsync(string url, string format)
         {
             string outputDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "subs");
             Directory.CreateDirectory(outputDir);
 
             try
             {
-                string videoId = await ProcessSingleVideoAsync(url, outputDir, format);
+                var result = await ProcessSingleVideoAsync(url, outputDir, format);
                 ProgressUpdated?.Invoke(this, 1);
-                return videoId;
+                return result;
             }
             catch (Exception ex)
             {
@@ -42,7 +42,7 @@ namespace Transcript001
             }
         }
 
-        private async Task<string> ProcessSingleVideoAsync(string url, string outputDir, string format)
+        private async Task<(string videoId, List<SubtitleEntry> subtitles)> ProcessSingleVideoAsync(string url, string outputDir, string format)
         {
             LogMessage($"Processing: {url}");
 
@@ -72,6 +72,8 @@ namespace Transcript001
 
             string fileName = NormalizeFileName($"{title} - {author}");
 
+            List<SubtitleEntry> subtitles = new List<SubtitleEntry>();
+
             if (videoDetails["captions"] != null && videoDetails["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"] != null)
             {
                 var captionTrack = videoDetails["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"]
@@ -80,8 +82,8 @@ namespace Transcript001
                 if (captionTrack != null)
                 {
                     string baseUrl = captionTrack["baseUrl"].ToString();
-                    string subtitles = await DownloadSubtitlesAsync(baseUrl, format);
-                    File.WriteAllText(Path.Combine(outputDir, $"{fileName}.txt"), subtitles);
+                    subtitles = await DownloadSubtitlesAsync(baseUrl, format);
+                    File.WriteAllText(Path.Combine(outputDir, $"{fileName}.txt"), FormatSubtitles(subtitles, format));
                     LogMessage($"Saved subtitles for: {fileName}");
                 }
                 else
@@ -94,7 +96,7 @@ namespace Transcript001
                 LogMessage($"No subtitles available for: {fileName}");
             }
 
-            return videoId;
+            return (videoId, subtitles);
         }
 
         private string ExtractVideoId(string url)
@@ -116,7 +118,7 @@ namespace Transcript001
             }
         }
 
-        private async Task<string> DownloadSubtitlesAsync(string url, string format)
+        private async Task<List<SubtitleEntry>> DownloadSubtitlesAsync(string url, string format)
         {
             string xmlContent = await httpClient.GetStringAsync(url);
             XmlDocument doc = new XmlDocument();
@@ -133,31 +135,21 @@ namespace Transcript001
                 subtitleEntries.Add(new SubtitleEntry(start, duration, text));
             }
 
+            return subtitleEntries;
+        }
+
+        private string FormatSubtitles(List<SubtitleEntry> entries, string format)
+        {
             switch (format)
             {
                 case "Time-stamped Text":
-                    return FormatTimeStampedText(subtitleEntries);
+                    return string.Join(Environment.NewLine, entries.Select(e => $"[{FormatTime(e.Start)}] {e.Text}"));
                 case "YouTube Original":
-                    return FormatYouTubeOriginal(subtitleEntries);
+                    return string.Join(Environment.NewLine + Environment.NewLine, entries.Select(e =>
+                        $"{FormatTime(e.Start)} - {FormatTime(e.Start + e.Duration)}{Environment.NewLine}{e.Text}"));
                 default:
-                    return FormatPlainText(subtitleEntries);
+                    return string.Join(Environment.NewLine, entries.Select(e => e.Text));
             }
-        }
-
-        private string FormatPlainText(List<SubtitleEntry> entries)
-        {
-            return string.Join(Environment.NewLine, entries.Select(e => e.Text));
-        }
-
-        private string FormatTimeStampedText(List<SubtitleEntry> entries)
-        {
-            return string.Join(Environment.NewLine, entries.Select(e => $"[{FormatTime(e.Start)}] {e.Text}"));
-        }
-
-        private string FormatYouTubeOriginal(List<SubtitleEntry> entries)
-        {
-            return string.Join(Environment.NewLine + Environment.NewLine, entries.Select(e =>
-                $"{FormatTime(e.Start)} - {FormatTime(e.Start + e.Duration)}{Environment.NewLine}{e.Text}"));
         }
 
         private string FormatTime(double seconds)

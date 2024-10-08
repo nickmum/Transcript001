@@ -20,13 +20,36 @@
             <ComboBoxItem Content="YouTube Original"/>
         </ComboBox>
         <Button Content="Process Video" Click="ProcessVideo_Click" Grid.Row="2" Margin="10" Padding="10,5"/>
-        <wv2:WebView2 x:Name="VideoPlayer" Grid.Row="3" Visibility="Collapsed"/>
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <wv2:WebView2 x:Name="VideoPlayer" Grid.Column="0"/>
+            <ListView x:Name="TranscriptListView" Grid.Column="1" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Text}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                                            <Setter Property="Background" Value="Yellow"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
         <TextBox x:Name="LogTextBox" Grid.Row="4" Margin="10" IsReadOnly="True" 
                  VerticalScrollBarVisibility="Visible" 
                  HorizontalScrollBarVisibility="Auto"
-                 Height="200"
+                 Height="100"
                  TextWrapping="Wrap"
-                 AcceptsReturn="True"/>        
+                 AcceptsReturn="True"/>
         <ProgressBar x:Name="ProgressBar" Grid.Row="5" Height="20" Margin="10"/>
         <TextBlock x:Name="StatusText" Grid.Row="5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Grid>
