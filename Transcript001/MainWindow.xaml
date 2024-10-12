@@ -7,26 +7,32 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <TextBox x:Name="UrlTextBox" Grid.Row="0" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
-        <ComboBox x:Name="FormatComboBox" Grid.Row="1" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Left" Width="200">
-            <ComboBoxItem Content="Plain Text" IsSelected="True"/>
-            <ComboBoxItem Content="Time-stamped Text"/>
-            <ComboBoxItem Content="YouTube Original"/>
-        </ComboBox>
-        <Button Content="Process Video" Click="ProcessVideo_Click" Grid.Row="2" Margin="10" Padding="10,5"/>
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <wv2:WebView2 x:Name="VideoPlayer" Grid.Column="0"/>
-            <ListView x:Name="TranscriptListView" Grid.Column="1" ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ComboBox x:Name="FormatComboBox" Grid.Column="0" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Left" Width="200">
+                <ComboBoxItem Content="Plain Text" IsSelected="True"/>
+                <ComboBoxItem Content="Time-stamped Text"/>
+                <ComboBoxItem Content="YouTube Original"/>
+            </ComboBox>
+            <Button Content="Process Video" Click="ProcessVideo_Click" Grid.Column="2" Margin="10" Padding="10,5"/>
+        </Grid>
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <wv2:WebView2 x:Name="VideoPlayer" Grid.Row="0"/>
+            <ListView x:Name="TranscriptListView" Grid.Row="1" ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding Text}">
@@ -44,13 +50,19 @@
                 </ListView.ItemTemplate>
             </ListView>
         </Grid>
-        <TextBox x:Name="LogTextBox" Grid.Row="4" Margin="10" IsReadOnly="True" 
+        <TextBox x:Name="LogTextBox" Grid.Row="3" Margin="10" IsReadOnly="True" 
                  VerticalScrollBarVisibility="Visible" 
                  HorizontalScrollBarVisibility="Auto"
                  Height="100"
                  TextWrapping="Wrap"
                  AcceptsReturn="True"/>
-        <ProgressBar x:Name="ProgressBar" Grid.Row="5" Height="20" Margin="10"/>
-        <TextBlock x:Name="StatusText" Grid.Row="5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar x:Name="ProgressBar" Grid.Column="0" Height="20" Margin="10"/>
+            <TextBlock x:Name="StatusText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"/>
+        </Grid>
     </Grid>
 </Window>
