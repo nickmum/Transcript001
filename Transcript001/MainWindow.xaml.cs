@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Windows.Data;
 using System.Diagnostics;
 using System.ComponentModel;
+using System.IO;
 
 namespace Transcript001
 {
@@ -18,6 +19,9 @@ namespace Transcript001
         private VideoProcessor videoProcessor;
         private List<SubtitleEntryViewModel> subtitleEntries;
         private DispatcherTimer timer;
+        private string currentVideoId;
+        private readonly ClaudeApiHelper _apiHelper;
+        private string _conversationHistory = "";
 
         public MainWindow()
         {
@@ -27,6 +31,8 @@ namespace Transcript001
             videoProcessor.LogUpdated += VideoProcessor_LogUpdated;
             InitializeWebView();
             InitializeTimer();
+            this.Closing += MainWindow_Closing;
+            _apiHelper = new ClaudeApiHelper("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");
         }
 
         private async void InitializeWebView()
@@ -63,9 +69,11 @@ namespace Transcript001
 
                 if (!string.IsNullOrEmpty(videoId))
                 {
+                    currentVideoId = videoId;
                     DisplayVideo(videoId);
                     subtitleEntries = subtitles.Select(s => new SubtitleEntryViewModel(s)).ToList();
                     DisplayTranscript();
+                    LoadNotes();
                 }
 
                 StatusText.Text = "Processing complete";
@@ -234,6 +242,62 @@ namespace Transcript001
                 Debug.WriteLine($"Error getting current time: {ex.Message}");
             }
         }
+
+        private void LoadNotes()
+        {
+            if (!string.IsNullOrEmpty(currentVideoId))
+            {
+                string notesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes.txt");
+                if (File.Exists(notesFilePath))
+                {
+                    NotesTextBox.Text = File.ReadAllText(notesFilePath);
+                }
+                else
+                {
+                    NotesTextBox.Text = string.Empty;
+                }
+            }
+        }
+
+        private void SaveNotes()
+        {
+            if (!string.IsNullOrEmpty(currentVideoId))
+            {
+                string notesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes.txt");
+                File.WriteAllText(notesFilePath, NotesTextBox.Text);
+            }
+        }
+
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
+        {
+            SaveNotes();
+        }
+        private async void SendButton_Click(object sender, RoutedEventArgs e)
+        {
+            string userInput = UserInputTextBox.Text.Trim();
+            if (string.IsNullOrEmpty(userInput)) return;
+
+            AppendToConversation("User: " + userInput);
+            UserInputTextBox.Clear();
+
+            try
+            {
+                string response = await _apiHelper.GetResponseFromClaude(_conversationHistory + "\nHuman: " + userInput + "\nAssistant:");
+                AppendToConversation("Assistant: " + response);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void AppendToConversation(string message)
+        {
+            _conversationHistory += message + "\n";
+            ConversationTextBox.Text = _conversationHistory;
+            ConversationTextBox.ScrollToEnd();
+        }
+
     }
 
     public class SubtitleEntryViewModel : INotifyPropertyChanged
