@@ -33,6 +33,8 @@ namespace Transcript001
             InitializeTimer();
             this.Closing += MainWindow_Closing;
             _apiHelper = new ClaudeApiHelper("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");
+            // Prepopulate the UrlTextBox
+            UrlTextBox.Text = "https://www.youtube.com/watch?v=rbu7Zu5X1zI";
         }
 
         private async void InitializeWebView()
