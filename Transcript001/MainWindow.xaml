@@ -47,23 +47,15 @@
                         <RowDefinition Height="3*"/>
                     </Grid.RowDefinitions>
                     <wv2:WebView2 x:Name="VideoPlayer" Grid.Row="0"/>
-                    <ListView x:Name="TranscriptListView" Grid.Row="1" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Text}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
-                                                    <Setter Property="Background" Value="Yellow"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <ScrollViewer x:Name="TranscriptScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
+                        <RichTextBox x:Name="TranscriptRichTextBox" IsReadOnly="False" IsDocumentEnabled="True" Background="Transparent" BorderThickness="0">
+                            <RichTextBox.Resources>
+                                <Style TargetType="{x:Type Paragraph}">
+                                    <Setter Property="Margin" Value="0"/>
+                                </Style>
+                            </RichTextBox.Resources>
+                        </RichTextBox>
+                    </ScrollViewer>
                 </Grid>
             </Border>
 

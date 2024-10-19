@@ -12,17 +12,20 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.IO;
 using System.Windows.Input;
+using System.Windows.Documents;
 
 namespace Transcript001
 {
     public partial class MainWindow : Window
     {
         private VideoProcessor videoProcessor;
-        private List<SubtitleEntryViewModel> subtitleEntries;
+        private List<SubtitleEntry> subtitleEntries;
         private DispatcherTimer timer;
         private string currentVideoId;
         private readonly ClaudeApiHelper _apiHelper;
         private string _conversationHistory = "";
+        private List<Run> _subtitleRuns;
+        private Run _currentRun;
 
         public MainWindow()
         {
@@ -74,7 +77,7 @@ namespace Transcript001
                 {
                     currentVideoId = videoId;
                     DisplayVideo(videoId);
-                    subtitleEntries = subtitles.Select(s => new SubtitleEntryViewModel(s)).ToList();
+                    subtitleEntries = subtitles;
                     DisplayTranscript();
                     LoadNotes();
                 }
@@ -144,13 +147,21 @@ namespace Transcript001
 
         private void DisplayTranscript()
         {
+            TranscriptRichTextBox.Document.Blocks.Clear();
+            _subtitleRuns = new List<Run>();
+
             if (subtitleEntries != null && subtitleEntries.Any())
             {
-                TranscriptListView.ItemsSource = subtitleEntries;
+                foreach (var entry in subtitleEntries)
+                {
+                    var run = new Run(entry.Text + " ");
+                    _subtitleRuns.Add(run);
+                    TranscriptRichTextBox.Document.Blocks.Add(new Paragraph(run));
+                }
             }
             else
             {
-                TranscriptListView.ItemsSource = new List<string> { "No transcript available." };
+                TranscriptRichTextBox.Document.Blocks.Add(new Paragraph(new Run("No transcript available.")));
             }
         }
 
@@ -166,21 +177,18 @@ namespace Transcript001
                 bool isCurrentSubtitle = (currentTime >= entry.Start && (nextEntry == null || currentTime < nextEntry.Start)) ||
                                          (i == 0 && currentTime < entry.Start);
 
-                if (isCurrentSubtitle != entry.IsHighlighted)
+                if (isCurrentSubtitle)
                 {
-                    entry.IsHighlighted = isCurrentSubtitle;
-                    Debug.WriteLine($"Updated subtitle {i}: Start={entry.Start}, IsHighlighted={entry.IsHighlighted}");
+                    if (_currentRun != null)
+                    {
+                        _currentRun.Background = Brushes.Transparent;
+                    }
+                    _currentRun = _subtitleRuns[i];
+                    _currentRun.Background = Brushes.Yellow;
+
+                    // Scroll to the current run
+                    _currentRun.BringIntoView();
                 }
-            }
-
-            // Force the ListView to refresh
-            TranscriptListView.Items.Refresh();
-
-            // Scroll to the highlighted item
-            var highlightedItem = subtitleEntries.FirstOrDefault(s => s.IsHighlighted);
-            if (highlightedItem != null)
-            {
-                TranscriptListView.ScrollIntoView(highlightedItem);
             }
         }
 
@@ -275,6 +283,7 @@ namespace Transcript001
         {
             SaveNotes();
         }
+
         private async void SendButton_Click(object sender, RoutedEventArgs e)
         {
             string userInput = UserInputTextBox.Text.Trim();
@@ -293,6 +302,7 @@ namespace Transcript001
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
         private void UserInputTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -309,37 +319,12 @@ namespace Transcript001
             ConversationTextBox.ScrollToEnd();
         }
 
-    }
-
-    public class SubtitleEntryViewModel : INotifyPropertyChanged
-    {
-        public double Start { get; }
-        public string Text { get; }
-        private bool _isHighlighted;
-        public bool IsHighlighted
+        private void CopyMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            get => _isHighlighted;
-            set
+            if (TranscriptRichTextBox.Selection.Text.Length > 0)
             {
-                if (_isHighlighted != value)
-                {
-                    _isHighlighted = value;
-                    OnPropertyChanged(nameof(IsHighlighted));
-                }
+                Clipboard.SetText(TranscriptRichTextBox.Selection.Text);
             }
-        }
-
-        public SubtitleEntryViewModel(SubtitleEntry entry)
-        {
-            Start = entry.Start;
-            Text = entry.Text;
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        protected virtual void OnPropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }
