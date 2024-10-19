@@ -11,6 +11,7 @@ using System.Windows.Data;
 using System.Diagnostics;
 using System.ComponentModel;
 using System.IO;
+using System.Windows.Input;
 
 namespace Transcript001
 {
@@ -290,6 +291,14 @@ namespace Transcript001
             catch (Exception ex)
             {
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void UserInputTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                SendButton_Click(sender, e);
+                e.Handled = true;
             }
         }
 
