@@ -26,10 +26,12 @@ namespace Transcript001
         private string _conversationHistory = "";
         private List<Run> _subtitleRuns;
         private Run _currentRun;
+        private bool _autoScrollEnabled = true;
 
         public MainWindow()
         {
             InitializeComponent();
+            AutoScrollToggle.IsChecked = true;
             videoProcessor = new VideoProcessor();
             videoProcessor.ProgressUpdated += VideoProcessor_ProgressUpdated;
             videoProcessor.LogUpdated += VideoProcessor_LogUpdated;
@@ -37,7 +39,6 @@ namespace Transcript001
             InitializeTimer();
             this.Closing += MainWindow_Closing;
             _apiHelper = new ClaudeApiHelper("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");
-            // Prepopulate the UrlTextBox
             UrlTextBox.Text = "https://www.youtube.com/watch?v=rbu7Zu5X1zI";
         }
 
@@ -169,16 +170,21 @@ namespace Transcript001
         {
             Debug.WriteLine($"Current Time: {currentTime}");
 
+            if (subtitleEntries == null || !subtitleEntries.Any())
+                return;
+
             for (int i = 0; i < subtitleEntries.Count; i++)
             {
                 var entry = subtitleEntries[i];
                 var nextEntry = i < subtitleEntries.Count - 1 ? subtitleEntries[i + 1] : null;
 
-                bool isCurrentSubtitle = (currentTime >= entry.Start && (nextEntry == null || currentTime < nextEntry.Start)) ||
-                                         (i == 0 && currentTime < entry.Start);
+                bool isCurrentSubtitle = (currentTime >= entry.Start &&
+                    (nextEntry == null || currentTime < nextEntry.Start)) ||
+                    (i == 0 && currentTime < entry.Start);
 
                 if (isCurrentSubtitle)
                 {
+                    // Update highlighting
                     if (_currentRun != null)
                     {
                         _currentRun.Background = Brushes.Transparent;
@@ -186,8 +192,12 @@ namespace Transcript001
                     _currentRun = _subtitleRuns[i];
                     _currentRun.Background = Brushes.Yellow;
 
-                    // Scroll to the current run
-                    _currentRun.BringIntoView();
+                    // Only auto-scroll if enabled
+                    if (_autoScrollEnabled)
+                    {
+                        _currentRun.BringIntoView();
+                    }
+                    break; // Exit loop once we've found the current subtitle
                 }
             }
         }
@@ -325,6 +335,20 @@ namespace Transcript001
             {
                 Clipboard.SetText(TranscriptRichTextBox.Selection.Text);
             }
+        }
+
+        private void AutoScrollToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            _autoScrollEnabled = true;
+            if (_currentRun != null)
+            {
+                _currentRun.BringIntoView();
+            }
+        }
+
+        private void AutoScrollToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            _autoScrollEnabled = false;
         }
     }
 }
