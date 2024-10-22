@@ -9,7 +9,7 @@
             <ColumnDefinition Width="5"/>
             <ColumnDefinition Width="*" MinWidth="300"/>
         </Grid.ColumnDefinitions>
-
+        <!-- Left Column: Video processing, transcript, and chat -->
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -40,22 +40,22 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Row="2" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Padding="10">
+            <Border Grid.Row="2" BorderBrush="#FF4CA6BF" BorderThickness="2,2,2,2" Padding="10">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="2*"/>
-                        <RowDefinition Height="3*"/>
+                        <RowDefinition Height="2*" MinHeight="100"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="3*" MinHeight="100"/>
                     </Grid.RowDefinitions>
                     <wv2:WebView2 x:Name="VideoPlayer" Grid.Row="0"/>
-                    <ScrollViewer x:Name="TranscriptScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
-                        <RichTextBox x:Name="TranscriptRichTextBox" IsReadOnly="False" IsDocumentEnabled="True" Background="Transparent" BorderThickness="0">
-                            <RichTextBox.Resources>
-                                <Style TargetType="{x:Type Paragraph}">
-                                    <Setter Property="Margin" Value="0"/>
-                                </Style>
-                            </RichTextBox.Resources>
-                        </RichTextBox>
-                    </ScrollViewer>
+                    <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="#DDDDDD"/>
+                    <RichTextBox x:Name="TranscriptRichTextBox" Grid.Row="2" IsReadOnly="False" IsDocumentEnabled="True" Background="Transparent" BorderThickness="0" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
+                        <RichTextBox.Resources>
+                            <Style TargetType="{x:Type Paragraph}">
+                                <Setter Property="Margin" Value="0"/>
+                            </Style>
+                        </RichTextBox.Resources>
+                    </RichTextBox>
                 </Grid>
             </Border>
 
@@ -65,9 +65,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-                        <TextBox x:Name="ConversationTextBox" IsReadOnly="True" TextWrapping="Wrap" VerticalAlignment="Stretch" Height="200"/>
-                    </ScrollViewer>
+                    <TextBox x:Name="ConversationTextBox" IsReadOnly="True" TextWrapping="Wrap" VerticalAlignment="Stretch" Height="200" VerticalScrollBarVisibility="Auto" Background="White"/>
                     <Grid Grid.Row="1" Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
