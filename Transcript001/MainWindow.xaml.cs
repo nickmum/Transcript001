@@ -38,7 +38,7 @@ namespace Transcript001
             InitializeWebView();
             InitializeTimer();
             this.Closing += MainWindow_Closing;
-            _apiHelper = new ClaudeApiHelper("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");
+            _apiHelper = new ClaudeApiHelper("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");
             UrlTextBox.Text = "https://www.youtube.com/watch?v=rbu7Zu5X1zI";
         }
 
@@ -81,6 +81,16 @@ namespace Transcript001
                     subtitleEntries = subtitles;
                     DisplayTranscript();
                     LoadNotes();
+
+                    // Extract transcript text
+                    string transcriptText = GetTranscriptText();
+                    string prompt = $"Please analyze the following video transcript and provide:\r\n\r\nA concise 2-3 sentence overview that captures the video's main theme and purpose\r\nA comprehensive analysis that includes:\r\n\r\nKey arguments and main points\r\nSupporting evidence and examples provided\r\nAny methodologies or frameworks discussed\r\nNotable quotes or statements\r\nContext and background information provided\r\n\r\n\r\nA chronological breakdown of the video's structure:\r\n\r\nHow the content is organized\r\nMajor topic transitions\r\nTime spent on each main segment (if timestamps are available)\r\n\r\n\r\nCore takeaways, including:\r\n\r\nPrimary insights and conclusions\r\nPractical applications or recommendations\r\nCritical findings or revelations\r\nAreas for further exploration mentioned\r\n\r\n\r\nAdditional considerations:\r\n\r\nAny caveats or limitations mentioned\r\nOpposing viewpoints presented\r\nQuestions raised or left unanswered\r\nResources or references cited\r\n\r\n\r\n\r\nPlease ensure the summary:\r\n\r\nMaintains objective language\r\nPreserves the original context\r\nCaptures both explicit and implicit messages\r\nReflects the relative importance of different points\r\nIncludes specific examples to support main ideas\r\n\r\nVideo Transcript: \n\n{transcriptText}";
+
+                    // Send prompt to Claude AI and get summary
+                    string summary = await _apiHelper.GetResponseFromClaude(prompt);
+
+                    // Display summary in NotesTextBox1
+                    NotesTextBox1.Text = summary;
                 }
 
                 StatusText.Text = "Processing complete";
@@ -268,14 +278,25 @@ namespace Transcript001
         {
             if (!string.IsNullOrEmpty(currentVideoId))
             {
-                string notesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes.txt");
-                if (File.Exists(notesFilePath))
+                string notesFilePath1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes1.txt");
+                string notesFilePath2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes2.txt");
+
+                if (File.Exists(notesFilePath1))
                 {
-                    NotesTextBox.Text = File.ReadAllText(notesFilePath);
+                    NotesTextBox1.Text = File.ReadAllText(notesFilePath1);
                 }
                 else
                 {
-                    NotesTextBox.Text = string.Empty;
+                    NotesTextBox1.Text = string.Empty;
+                }
+
+                if (File.Exists(notesFilePath2))
+                {
+                    NotesTextBox2.Text = File.ReadAllText(notesFilePath2);
+                }
+                else
+                {
+                    NotesTextBox2.Text = string.Empty;
                 }
             }
         }
@@ -284,8 +305,11 @@ namespace Transcript001
         {
             if (!string.IsNullOrEmpty(currentVideoId))
             {
-                string notesFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes.txt");
-                File.WriteAllText(notesFilePath, NotesTextBox.Text);
+                string notesFilePath1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes1.txt");
+                string notesFilePath2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes2.txt");
+
+                File.WriteAllText(notesFilePath1, NotesTextBox1.Text);
+                File.WriteAllText(notesFilePath2, NotesTextBox2.Text);
             }
         }
 
@@ -349,6 +373,15 @@ namespace Transcript001
         private void AutoScrollToggle_Unchecked(object sender, RoutedEventArgs e)
         {
             _autoScrollEnabled = false;
+        }
+        private string GetTranscriptText()
+        {
+            if (subtitleEntries == null || !subtitleEntries.Any())
+            {
+                return string.Empty;
+            }
+
+            return string.Join(" ", subtitleEntries.Select(entry => entry.Text));
         }
     }
 }
