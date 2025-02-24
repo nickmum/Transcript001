@@ -11,9 +11,13 @@
             <ColumnDefinition Width="5"/>
             <ColumnDefinition Width="*" MinWidth="300"/>
         </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
         <!-- Left Column: Contains all video processing, transcript, and chat functionality -->
-        <Grid Grid.Column="0">
+        <Grid Grid.Column="0" Grid.Row="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" MinHeight="30"/>
                 <RowDefinition Height="3"/>
@@ -140,38 +144,13 @@
 
             <!-- Horizontal GridSplitter -->
             <GridSplitter Grid.Row="7" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
-
-            <!-- Log Display Section -->
-            <Border Grid.Row="8" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Padding="10,5">
-                <TextBox x:Name="LogTextBox" IsReadOnly="True" 
-                         VerticalScrollBarVisibility="Auto" 
-                         HorizontalScrollBarVisibility="Auto"
-                         Height="40"
-                         TextWrapping="Wrap"
-                         AcceptsReturn="True"/>
-            </Border>
-
-            <!-- Horizontal GridSplitter -->
-            <GridSplitter Grid.Row="9" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
-
-            <!-- Status Bar Section -->
-            <Border Grid.Row="10" Padding="10,5">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <ProgressBar x:Name="ProgressBar" Grid.Column="0" Height="10" Margin="0,0,10,0"/>
-                    <TextBlock x:Name="StatusText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                </Grid>
-            </Border>
         </Grid>
 
         <!-- Vertical GridSplitter between left and right panels -->
         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
 
         <!-- Right Panel: Notes Section -->
-        <Border Grid.Column="2" Background="#FFFAF0" Padding="10">
+        <Border Grid.Column="2" Grid.Row="0" Background="#FFFAF0" Padding="10">
             <TabControl x:Name="NotesTabControl">
                 <TabItem Header="Page 1">
                     <TextBox x:Name="NotesTextBox1" 
@@ -192,5 +171,19 @@
                 <!-- Add more TabItem elements as needed -->
             </TabControl>
         </Border>
+
+        <!-- New Status Bar at the bottom of the window -->
+        <StatusBar Grid.Row="1" Grid.ColumnSpan="3">
+            <StatusBar.Items>
+                <ProgressBar x:Name="ProgressBar" Height="10" Width="200" Margin="0,0,10,0"/>
+                <TextBox x:Name="LogTextBox" IsReadOnly="True" 
+                         VerticalScrollBarVisibility="Auto" 
+                         HorizontalScrollBarVisibility="Auto"
+                         Width="400"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="True"/>
+                <TextBlock x:Name="StatusText" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0"/>
+            </StatusBar.Items>
+        </StatusBar>
     </Grid>
 </Window>
