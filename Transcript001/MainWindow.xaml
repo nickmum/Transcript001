@@ -13,35 +13,26 @@
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="30"/>
         </Grid.RowDefinitions>
 
         <!-- Left Column: Contains all video processing, transcript, and chat functionality -->
         <Grid Grid.Column="0" Grid.Row="0">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" MinHeight="30"/>
-                <RowDefinition Height="3"/>
-                <RowDefinition Height="Auto" MinHeight="30"/>
-                <RowDefinition Height="3"/>
-                <RowDefinition Height="*" MinHeight="100"/>
-                <RowDefinition Height="3"/>
-                <RowDefinition Height="Auto" MinHeight="100"/>
-                <RowDefinition Height="3"/>
-                <!--<RowDefinition Height="Auto" MinHeight="40"/>
-                <RowDefinition Height="3"/>
-                <RowDefinition Height="Auto" MinHeight="30"/>-->
+                <RowDefinition Height="45" />
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="*" MinHeight="30"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="2*"/>
             </Grid.RowDefinitions>
 
             <!-- URL Input Section -->
-            <Border Grid.Row="0" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Padding="10,5">
+            <Border Grid.Row="0" BorderBrush="#FF5BA044" BorderThickness="2" Padding="10,5" CornerRadius="10">
                 <TextBox x:Name="UrlTextBox" VerticalAlignment="Center"/>
             </Border>
 
-            <!-- Horizontal GridSplitter -->
-            <!--<GridSplitter Grid.Row="1" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>-->
-
             <!-- Video Processing Controls Section -->
-            <Border Grid.Row="2" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Background="#F5F5F5" Padding="10,5">
+            <Border Grid.Row="1" BorderBrush="#FFEF2525" BorderThickness="2" Background="#F5F5F5" Padding="10,5" CornerRadius="10" Margin="5,5,5,5">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -59,15 +50,12 @@
                 </Grid>
             </Border>
 
-            <!-- Horizontal GridSplitter -->
-            <!--<GridSplitter Grid.Row="3" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>-->
-
             <!-- Main Content Area: Video Player and Transcript -->
-            <Border Grid.Row="4" BorderBrush="#FF4CA6BF" BorderThickness="2" Padding="10">
+            <Border Grid.Row="2" BorderBrush="#FF4CA6BF" BorderThickness="2" Padding="10" CornerRadius="10" Margin="5,5,5,5" Grid.RowSpan="2">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" MinHeight="100"/>
-                        <RowDefinition Height="5"/>
+                        <!--<RowDefinition Height="5"/>-->
                         <RowDefinition Height="70" MinHeight="70"/>
                     </Grid.RowDefinitions>
 
@@ -75,7 +63,7 @@
                     <wv2:WebView2 x:Name="VideoPlayer" Grid.Row="0"/>
 
                     <!-- Vertical splitter between video and transcript -->
-                    <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
+                    <!--<GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="#DDDDDD"/>-->
 
                     <!-- Transcript section with auto-scroll toggle -->
                     <Grid Grid.Row="2">
@@ -117,11 +105,11 @@
                 </Grid>
             </Border>
 
-            <!-- Horizontal GridSplitter -->
-            <GridSplitter Grid.Row="5" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
+            <!-- Vertical splitter between video and transcript -->
+            <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
 
             <!-- Chat Interface Section -->
-            <Border Grid.Row="6" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Background="#F5F5F5" Padding="10">
+            <Border Grid.Row="4" BorderBrush="#FF7730E4" BorderThickness="2" Padding="10" CornerRadius="10" Margin="5,5,5,5" >
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -129,7 +117,7 @@
                     </Grid.RowDefinitions>
 
                     <TextBox x:Name="ConversationTextBox" IsReadOnly="True" TextWrapping="Wrap" VerticalAlignment="Stretch" 
-                            Height="300" VerticalScrollBarVisibility="Auto" Background="White"/>
+                             VerticalScrollBarVisibility="Auto" Background="White"/>
 
                     <Grid Grid.Row="1" Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
@@ -141,16 +129,13 @@
                     </Grid>
                 </Grid>
             </Border>
-
-            <!-- Horizontal GridSplitter -->
-            <!--<GridSplitter Grid.Row="7" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>-->
         </Grid>
 
         <!-- Vertical GridSplitter between left and right panels -->
         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
 
         <!-- Right Panel: Notes Section -->
-        <Border Grid.Column="2" Grid.Row="0" Background="#FFFAF0" Padding="10">
+        <Border Grid.Column="2" Grid.Row="0" BorderBrush="#FFB5A70D" BorderThickness="2" Padding="10" Background="#FFFAF0" CornerRadius="10" Margin="5,5,5,5">
             <TabControl x:Name="NotesTabControl">
                 <TabItem Header="Page 1">
                     <TextBox x:Name="NotesTextBox1" 
@@ -172,8 +157,8 @@
             </TabControl>
         </Border>
 
-        <!-- New Status Bar at the bottom of the window -->
-        <StatusBar Grid.Row="1" Grid.ColumnSpan="3">
+        <!-- Status Bar at the bottom of the window -->
+        <StatusBar Grid.Row="1" Grid.ColumnSpan="3" Height="30">
             <StatusBar.Items>
                 <ProgressBar x:Name="ProgressBar" Height="10" Width="200" Margin="0,0,10,0"/>
                 <TextBox x:Name="LogTextBox" IsReadOnly="True" 
