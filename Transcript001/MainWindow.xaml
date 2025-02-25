@@ -27,9 +27,9 @@
                 <RowDefinition Height="3"/>
                 <RowDefinition Height="Auto" MinHeight="100"/>
                 <RowDefinition Height="3"/>
-                <RowDefinition Height="Auto" MinHeight="40"/>
+                <!--<RowDefinition Height="Auto" MinHeight="40"/>
                 <RowDefinition Height="3"/>
-                <RowDefinition Height="Auto" MinHeight="30"/>
+                <RowDefinition Height="Auto" MinHeight="30"/>-->
             </Grid.RowDefinitions>
 
             <!-- URL Input Section -->
@@ -38,7 +38,7 @@
             </Border>
 
             <!-- Horizontal GridSplitter -->
-            <GridSplitter Grid.Row="1" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
+            <!--<GridSplitter Grid.Row="1" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>-->
 
             <!-- Video Processing Controls Section -->
             <Border Grid.Row="2" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Background="#F5F5F5" Padding="10,5">
@@ -60,15 +60,15 @@
             </Border>
 
             <!-- Horizontal GridSplitter -->
-            <GridSplitter Grid.Row="3" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
+            <!--<GridSplitter Grid.Row="3" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>-->
 
             <!-- Main Content Area: Video Player and Transcript -->
             <Border Grid.Row="4" BorderBrush="#FF4CA6BF" BorderThickness="2" Padding="10">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="2*" MinHeight="100"/>
+                        <RowDefinition Height="*" MinHeight="100"/>
                         <RowDefinition Height="5"/>
-                        <RowDefinition Height="3*" MinHeight="100"/>
+                        <RowDefinition Height="70" MinHeight="70"/>
                     </Grid.RowDefinitions>
 
                     <!-- Video player using WebView2 control -->
@@ -80,8 +80,8 @@
                     <!-- Transcript section with auto-scroll toggle -->
                     <Grid Grid.Row="2">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
 
                         <ToggleButton x:Name="AutoScrollToggle" Grid.Row="0" 
@@ -101,7 +101,7 @@
                             </StackPanel>
                         </ToggleButton>
 
-                        <RichTextBox x:Name="TranscriptRichTextBox" Grid.Row="1"
+                        <RichTextBox x:Name="TranscriptRichTextBox" Grid.Row="1" 
                                    IsReadOnly="False" 
                                    IsDocumentEnabled="True" 
                                    Background="Transparent" 
@@ -129,7 +129,7 @@
                     </Grid.RowDefinitions>
 
                     <TextBox x:Name="ConversationTextBox" IsReadOnly="True" TextWrapping="Wrap" VerticalAlignment="Stretch" 
-                            Height="200" VerticalScrollBarVisibility="Auto" Background="White"/>
+                            Height="300" VerticalScrollBarVisibility="Auto" Background="White"/>
 
                     <Grid Grid.Row="1" Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
@@ -143,7 +143,7 @@
             </Border>
 
             <!-- Horizontal GridSplitter -->
-            <GridSplitter Grid.Row="7" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>
+            <!--<GridSplitter Grid.Row="7" Height="3" HorizontalAlignment="Stretch" Background="#DDDDDD"/>-->
         </Grid>
 
         <!-- Vertical GridSplitter between left and right panels -->
