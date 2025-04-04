@@ -374,6 +374,7 @@ namespace Transcript001
         {
             _autoScrollEnabled = false;
         }
+
         private string GetTranscriptText()
         {
             if (subtitleEntries == null || !subtitleEntries.Any())
@@ -382,6 +383,29 @@ namespace Transcript001
             }
 
             return string.Join(" ", subtitleEntries.Select(entry => entry.Text));
+        }
+
+        private void AddTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Create a new TabItem
+            TabItem newTab = new TabItem
+            {
+                Header = $"Page {NotesTabControl.Items.Count + 1}",
+                Content = new TextBox
+                {
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    AcceptsReturn = true,
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 14
+                }
+            };
+
+            // Add the new TabItem to the TabControl
+            NotesTabControl.Items.Add(newTab);
+
+            // Select the new TabItem
+            NotesTabControl.SelectedItem = newTab;
         }
     }
 }
