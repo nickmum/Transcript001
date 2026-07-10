@@ -23,7 +23,7 @@ namespace Transcript001
         {
             var requestBody = new
             {
-                model = "claude-3-sonnet-20240229",
+                model = "claude-sonnet-5",
                 max_tokens = 1000,
                 messages = new[]
                 {

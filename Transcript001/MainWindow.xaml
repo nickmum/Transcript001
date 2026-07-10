@@ -151,6 +151,15 @@
                         Padding="10,5"
                         Click="AddTabButton_Click"/>
                 
+                <!-- Add Sketch Tab Button -->
+                <Button x:Name="AddSketchTabButton" 
+                        Grid.Row="0" 
+                        Content="Add Sketch Tab" 
+                        HorizontalAlignment="Right"
+                        Margin="0,0,100,5"
+                        Padding="10,5"
+                        Click="AddSketchTabButton_Click"/>
+                
                 <!-- Tab Control -->
                 <TabControl x:Name="NotesTabControl" Grid.Row="1">
                     <TabItem Header="Page 1">

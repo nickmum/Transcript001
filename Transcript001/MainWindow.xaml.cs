@@ -38,7 +38,12 @@ namespace Transcript001
             InitializeWebView();
             InitializeTimer();
             this.Closing += MainWindow_Closing;
-            _apiHelper = new ClaudeApiHelper("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");
+            string apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                MessageBox.Show("ANTHROPIC_API_KEY environment variable is not set. AI summary and chat features will not work.", "Missing API Key", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            _apiHelper = new ClaudeApiHelper(apiKey);
             UrlTextBox.Text = "https://www.youtube.com/watch?v=rbu7Zu5X1zI";
         }
 
@@ -55,14 +60,11 @@ namespace Transcript001
             timer.Tick += Timer_Tick;
         }
 
-        private async void ProcessVideo_Click(object sender, RoutedEventArgs e)
+        public async Task<string> ProcessVideoAsync(string url)
         {
-            string url = UrlTextBox.Text.Trim();
-
             if (string.IsNullOrEmpty(url))
             {
-                MessageBox.Show("Please enter a video URL.", "No URL", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                throw new ArgumentException("Please enter a video URL.", nameof(url));
             }
 
             StatusText.Text = "Processing video...";
@@ -91,6 +93,7 @@ namespace Transcript001
 
                     // Display summary in NotesTextBox1
                     NotesTextBox1.Text = summary;
+                    return summary;
                 }
 
                 StatusText.Text = "Processing complete";
@@ -99,7 +102,16 @@ namespace Transcript001
             {
                 MessageBox.Show($"Error processing video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusText.Text = "Processing failed";
+                throw;
             }
+
+            return null;
+        }
+
+        private async void ProcessVideo_Click(object sender, RoutedEventArgs e)
+        {
+            string url = UrlTextBox.Text.Trim();
+            await ProcessVideoAsync(url);
         }
 
         private void DisplayVideo(string videoId)
@@ -390,7 +402,7 @@ namespace Transcript001
             // Create a new TabItem
             TabItem newTab = new TabItem
             {
-                Header = $"Page {NotesTabControl.Items.Count + 1}",
+                Header = $"Note {NotesTabControl.Items.Count + 1}",
                 Content = new TextBox
                 {
                     VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
@@ -406,6 +418,38 @@ namespace Transcript001
 
             // Select the new TabItem
             NotesTabControl.SelectedItem = newTab;
+        }
+
+        private void AddSketchTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Create a new TabItem with SketchCanvas and SketchToolbar
+            TabItem newSketchTab = new TabItem
+            {
+                Header = $"Sketch {NotesTabControl.Items.Count + 1}",
+                Content = new Grid
+                {
+                    RowDefinitions =
+                    {
+                        new RowDefinition { Height = new GridLength(50) },
+                        new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }
+                    },
+                    Children =
+                    {
+                        new SketchToolbar(),
+                        new SketchCanvas()
+                    }
+                }
+            };
+
+            // Set Grid.Row properties correctly
+            Grid.SetRow((newSketchTab.Content as Grid).Children[0], 0);
+            Grid.SetRow((newSketchTab.Content as Grid).Children[1], 1);
+
+            // Add the new TabItem to the TabControl
+            NotesTabControl.Items.Add(newSketchTab);
+
+            // Select the new TabItem
+            NotesTabControl.SelectedItem = newSketchTab;
         }
     }
 }
