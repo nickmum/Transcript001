@@ -13,6 +13,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows.Input;
 using System.Windows.Documents;
+using System.Text.RegularExpressions;
 
 namespace Transcript001
 {
@@ -20,13 +21,14 @@ namespace Transcript001
     {
         private VideoProcessor videoProcessor;
         private List<SubtitleEntry> subtitleEntries;
-        private DispatcherTimer timer;
         private string currentVideoId;
         private readonly ClaudeApiHelper _apiHelper;
-        private string _conversationHistory = "";
+        private readonly List<ChatMessage> _chatMessages = new List<ChatMessage>();
         private List<Run> _subtitleRuns;
         private Run _currentRun;
         private bool _autoScrollEnabled = true;
+
+        private const string SummaryPromptTemplate = "Please analyze the following video transcript and provide:\r\n\r\nA concise 2-3 sentence overview that captures the video's main theme and purpose\r\nA comprehensive analysis that includes:\r\n\r\nKey arguments and main points\r\nSupporting evidence and examples provided\r\nAny methodologies or frameworks discussed\r\nNotable quotes or statements\r\nContext and background information provided\r\n\r\n\r\nA chronological breakdown of the video's structure:\r\n\r\nHow the content is organized\r\nMajor topic transitions\r\nTime spent on each main segment (if timestamps are available)\r\n\r\n\r\nCore takeaways, including:\r\n\r\nPrimary insights and conclusions\r\nPractical applications or recommendations\r\nCritical findings or revelations\r\nAreas for further exploration mentioned\r\n\r\n\r\nAdditional considerations:\r\n\r\nAny caveats or limitations mentioned\r\nOpposing viewpoints presented\r\nQuestions raised or left unanswered\r\nResources or references cited\r\n\r\n\r\n\r\nPlease ensure the summary:\r\n\r\nMaintains objective language\r\nPreserves the original context\r\nCaptures both explicit and implicit messages\r\nReflects the relative importance of different points\r\nIncludes specific examples to support main ideas\r\n\r\nVideo Transcript: \n\n";
 
         public MainWindow()
         {
@@ -36,7 +38,6 @@ namespace Transcript001
             videoProcessor.ProgressUpdated += VideoProcessor_ProgressUpdated;
             videoProcessor.LogUpdated += VideoProcessor_LogUpdated;
             InitializeWebView();
-            InitializeTimer();
             this.Closing += MainWindow_Closing;
             string apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
             if (string.IsNullOrEmpty(apiKey))
@@ -47,17 +48,20 @@ namespace Transcript001
             UrlTextBox.Text = "https://www.youtube.com/watch?v=rbu7Zu5X1zI";
         }
 
+        // YouTube rejects embeds from pages without a real origin (player error 153),
+        // so the player page is served from a virtual host mapped to a local folder
+        // instead of being loaded with NavigateToString.
+        private const string PlayerHostName = "transcript001.player";
+
+        private string PlayerDirectory => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "player");
+
         private async void InitializeWebView()
         {
             await VideoPlayer.EnsureCoreWebView2Async();
+            Directory.CreateDirectory(PlayerDirectory);
+            VideoPlayer.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                PlayerHostName, PlayerDirectory, CoreWebView2HostResourceAccessKind.Allow);
             VideoPlayer.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
-        }
-
-        private void InitializeTimer()
-        {
-            timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(100);
-            timer.Tick += Timer_Tick;
         }
 
         public async Task<string> ProcessVideoAsync(string url)
@@ -84,16 +88,26 @@ namespace Transcript001
                     DisplayTranscript();
                     LoadNotes();
 
-                    // Extract transcript text
-                    string transcriptText = GetTranscriptText();
-                    string prompt = $"Please analyze the following video transcript and provide:\r\n\r\nA concise 2-3 sentence overview that captures the video's main theme and purpose\r\nA comprehensive analysis that includes:\r\n\r\nKey arguments and main points\r\nSupporting evidence and examples provided\r\nAny methodologies or frameworks discussed\r\nNotable quotes or statements\r\nContext and background information provided\r\n\r\n\r\nA chronological breakdown of the video's structure:\r\n\r\nHow the content is organized\r\nMajor topic transitions\r\nTime spent on each main segment (if timestamps are available)\r\n\r\n\r\nCore takeaways, including:\r\n\r\nPrimary insights and conclusions\r\nPractical applications or recommendations\r\nCritical findings or revelations\r\nAreas for further exploration mentioned\r\n\r\n\r\nAdditional considerations:\r\n\r\nAny caveats or limitations mentioned\r\nOpposing viewpoints presented\r\nQuestions raised or left unanswered\r\nResources or references cited\r\n\r\n\r\n\r\nPlease ensure the summary:\r\n\r\nMaintains objective language\r\nPreserves the original context\r\nCaptures both explicit and implicit messages\r\nReflects the relative importance of different points\r\nIncludes specific examples to support main ideas\r\n\r\nVideo Transcript: \n\n{transcriptText}";
-
-                    // Send prompt to Claude AI and get summary
-                    string summary = await _apiHelper.GetResponseFromClaude(prompt);
-
-                    // Display summary in NotesTextBox1
-                    NotesTextBox1.Text = summary;
-                    return summary;
+                    // The video and transcript are already displayed at this point, so a
+                    // summary failure (no API credits, network, etc.) shouldn't read as a
+                    // failure of the whole video-processing step.
+                    StatusText.Text = "Generating AI summary...";
+                    try
+                    {
+                        string transcriptText = GetTranscriptText();
+                        string summary = await _apiHelper.GetResponseFromClaude(SummaryPromptTemplate + transcriptText);
+                        NotesTextBox1.Text = summary;
+                        StatusText.Text = "Processing complete";
+                        return summary;
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusText.Text = "Video loaded — AI summary failed";
+                        MessageBox.Show(
+                            $"The video and transcript loaded successfully, but the AI summary could not be generated:\n\n{ex.Message}",
+                            "AI Summary Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return null;
+                    }
                 }
 
                 StatusText.Text = "Processing complete";
@@ -102,7 +116,6 @@ namespace Transcript001
             {
                 MessageBox.Show($"Error processing video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusText.Text = "Processing failed";
-                throw;
             }
 
             return null;
@@ -116,6 +129,20 @@ namespace Transcript001
 
         private void DisplayVideo(string videoId)
         {
+            // The ID is interpolated into HTML/JS below, so only accept the exact
+            // 11-character YouTube ID format to prevent script injection.
+            if (!Regex.IsMatch(videoId, "^[A-Za-z0-9_-]{11}$"))
+            {
+                MessageBox.Show("The video ID extracted from the URL is not valid.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (VideoPlayer.CoreWebView2 == null)
+            {
+                MessageBox.Show("The video player is still initializing. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             string embedHtml = $@"
                 <html>
                     <body style='margin:0;padding:0;'>
@@ -128,33 +155,21 @@ namespace Transcript001
                                     height: '100%',
                                     width: '100%',
                                     videoId: '{videoId}',
-                                    events: {{
-                                        'onReady': onPlayerReady,
-                                        'onStateChange': onPlayerStateChange
-                                    }}
+                                    playerVars: {{ 'origin': 'https://{PlayerHostName}' }}
                                 }});
                             }}
-                            function onPlayerReady(event) {{
-                                // Player is ready
-                            }}
-                            function onPlayerStateChange(event) {{
-                                if (event.data == YT.PlayerState.PLAYING) {{
-                                    window.chrome.webview.postMessage({{ type: 'playerState', state: 'playing' }});
-                                }} else if (event.data == YT.PlayerState.PAUSED) {{
-                                    window.chrome.webview.postMessage({{ type: 'playerState', state: 'paused' }});
-                                }}
-                            }}
-                            function getCurrentTime() {{
-                                return player.getCurrentTime();
-                            }}
                             setInterval(() => {{
-                                window.chrome.webview.postMessage({{ type: 'timeUpdate', currentTime: getCurrentTime() }});
+                                if (player && player.getPlayerState && player.getPlayerState() === YT.PlayerState.PLAYING) {{
+                                    window.chrome.webview.postMessage({{ type: 'timeUpdate', currentTime: player.getCurrentTime() }});
+                                }}
                             }}, 100);
                         </script>
                     </body>
                 </html>";
 
-            VideoPlayer.NavigateToString(embedHtml);
+            Directory.CreateDirectory(PlayerDirectory);
+            File.WriteAllText(Path.Combine(PlayerDirectory, "player.html"), embedHtml);
+            VideoPlayer.CoreWebView2.Navigate($"https://{PlayerHostName}/player.html");
             VideoPlayer.Visibility = Visibility.Visible;
         }
 
@@ -236,22 +251,7 @@ namespace Transcript001
                     {
                         string messageType = typeElement.GetString();
 
-                        if (messageType == "playerState")
-                        {
-                            if (root.TryGetProperty("state", out JsonElement stateElement))
-                            {
-                                string state = stateElement.GetString();
-                                if (state == "playing")
-                                {
-                                    timer.Start();
-                                }
-                                else if (state == "paused")
-                                {
-                                    timer.Stop();
-                                }
-                            }
-                        }
-                        else if (messageType == "timeUpdate")
+                        if (messageType == "timeUpdate")
                         {
                             if (root.TryGetProperty("currentTime", out JsonElement currentTimeElement))
                             {
@@ -270,58 +270,52 @@ namespace Transcript001
             }
         }
 
-        private async void Timer_Tick(object sender, EventArgs e)
+        private string GetNotesFilePath(int noteNumber)
         {
-            try
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes{noteNumber}.txt");
+        }
+
+        private List<TextBox> GetNoteTextBoxes()
+        {
+            var textBoxes = new List<TextBox>();
+            foreach (var item in NotesTabControl.Items)
             {
-                var result = await VideoPlayer.CoreWebView2.ExecuteScriptAsync("getCurrentTime()");
-                if (double.TryParse(result, out double currentTime))
+                if (item is TabItem tab && tab.Content is TextBox textBox)
                 {
-                    UpdateTranscriptDisplay(currentTime);
+                    textBoxes.Add(textBox);
                 }
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error getting current time: {ex.Message}");
-            }
+            return textBoxes;
         }
 
         private void LoadNotes()
         {
-            if (!string.IsNullOrEmpty(currentVideoId))
+            if (string.IsNullOrEmpty(currentVideoId)) return;
+
+            var textBoxes = GetNoteTextBoxes();
+
+            // Recreate tabs for any saved note files beyond the tabs that already exist
+            while (File.Exists(GetNotesFilePath(textBoxes.Count + 1)))
             {
-                string notesFilePath1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes1.txt");
-                string notesFilePath2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes2.txt");
+                textBoxes.Add(CreateNoteTab());
+            }
 
-                if (File.Exists(notesFilePath1))
-                {
-                    NotesTextBox1.Text = File.ReadAllText(notesFilePath1);
-                }
-                else
-                {
-                    NotesTextBox1.Text = string.Empty;
-                }
-
-                if (File.Exists(notesFilePath2))
-                {
-                    NotesTextBox2.Text = File.ReadAllText(notesFilePath2);
-                }
-                else
-                {
-                    NotesTextBox2.Text = string.Empty;
-                }
+            for (int i = 0; i < textBoxes.Count; i++)
+            {
+                string path = GetNotesFilePath(i + 1);
+                textBoxes[i].Text = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
             }
         }
 
         private void SaveNotes()
         {
-            if (!string.IsNullOrEmpty(currentVideoId))
-            {
-                string notesFilePath1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes1.txt");
-                string notesFilePath2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"{currentVideoId}_notes2.txt");
+            if (string.IsNullOrEmpty(currentVideoId)) return;
 
-                File.WriteAllText(notesFilePath1, NotesTextBox1.Text);
-                File.WriteAllText(notesFilePath2, NotesTextBox2.Text);
+            int noteNumber = 1;
+            foreach (var textBox in GetNoteTextBoxes())
+            {
+                File.WriteAllText(GetNotesFilePath(noteNumber), textBox.Text);
+                noteNumber++;
             }
         }
 
@@ -337,14 +331,18 @@ namespace Transcript001
 
             AppendToConversation("User: " + userInput);
             UserInputTextBox.Clear();
+            _chatMessages.Add(new ChatMessage("user", userInput));
 
             try
             {
-                string response = await _apiHelper.GetResponseFromClaude(_conversationHistory + "\nHuman: " + userInput + "\nAssistant:");
+                string response = await _apiHelper.GetResponseFromClaude(_chatMessages);
+                _chatMessages.Add(new ChatMessage("assistant", response));
                 AppendToConversation("Assistant: " + response);
             }
             catch (Exception ex)
             {
+                // Remove the unanswered user message so the history stays valid for the next attempt
+                _chatMessages.RemoveAt(_chatMessages.Count - 1);
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -360,8 +358,7 @@ namespace Transcript001
 
         private void AppendToConversation(string message)
         {
-            _conversationHistory += message + "\n";
-            ConversationTextBox.Text = _conversationHistory;
+            ConversationTextBox.AppendText(message + "\n");
             ConversationTextBox.ScrollToEnd();
         }
 
@@ -397,58 +394,101 @@ namespace Transcript001
             return string.Join(" ", subtitleEntries.Select(entry => entry.Text));
         }
 
-        private void AddTabButton_Click(object sender, RoutedEventArgs e)
+        private TextBox CreateNoteTab()
         {
-            // Create a new TabItem
-            TabItem newTab = new TabItem
+            var textBox = new TextBox
             {
-                Header = $"Note {NotesTabControl.Items.Count + 1}",
-                Content = new TextBox
-                {
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    AcceptsReturn = true,
-                    TextWrapping = TextWrapping.Wrap,
-                    FontSize = 14
-                }
+                VerticalScrollBarVisibility = ScrollBarVisibility.Visible,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 14
             };
 
-            // Add the new TabItem to the TabControl
-            NotesTabControl.Items.Add(newTab);
+            var newTab = new TabItem
+            {
+                Header = $"Note {NotesTabControl.Items.Count + 1}",
+                Content = textBox
+            };
 
-            // Select the new TabItem
-            NotesTabControl.SelectedItem = newTab;
+            NotesTabControl.Items.Add(newTab);
+            return textBox;
+        }
+
+        private void TabItem_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            // Only the header visuals live inside the TabItem, so this fires for
+            // header double-clicks, not clicks on the tab's content
+            if (!(sender is TabItem tab) || !(tab.Header is string currentName)) return;
+
+            var editBox = new TextBox
+            {
+                Text = currentName,
+                MinWidth = 60
+            };
+
+            void Commit()
+            {
+                if (!ReferenceEquals(tab.Header, editBox)) return;
+                string newName = editBox.Text.Trim();
+                tab.Header = string.IsNullOrEmpty(newName) ? currentName : newName;
+            }
+
+            editBox.KeyDown += (s, args) =>
+            {
+                if (args.Key == Key.Enter)
+                {
+                    Commit();
+                    args.Handled = true;
+                }
+                else if (args.Key == Key.Escape)
+                {
+                    tab.Header = currentName;
+                    args.Handled = true;
+                }
+            };
+            editBox.LostFocus += (s, args) => Commit();
+            editBox.Loaded += (s, args) =>
+            {
+                editBox.Focus();
+                editBox.SelectAll();
+            };
+
+            tab.Header = editBox;
+            e.Handled = true;
+        }
+
+        private void AddTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            CreateNoteTab();
+            NotesTabControl.SelectedIndex = NotesTabControl.Items.Count - 1;
         }
 
         private void AddSketchTabButton_Click(object sender, RoutedEventArgs e)
         {
-            // Create a new TabItem with SketchCanvas and SketchToolbar
+            var toolbar = new SketchToolbar();
+            var canvas = new SketchCanvas();
+            toolbar.TargetCanvas = canvas;
+
+            var grid = new Grid
+            {
+                RowDefinitions =
+                {
+                    new RowDefinition { Height = new GridLength(50) },
+                    new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }
+                },
+                Children = { toolbar, canvas }
+            };
+            Grid.SetRow(toolbar, 0);
+            Grid.SetRow(canvas, 1);
+
             TabItem newSketchTab = new TabItem
             {
                 Header = $"Sketch {NotesTabControl.Items.Count + 1}",
-                Content = new Grid
-                {
-                    RowDefinitions =
-                    {
-                        new RowDefinition { Height = new GridLength(50) },
-                        new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }
-                    },
-                    Children =
-                    {
-                        new SketchToolbar(),
-                        new SketchCanvas()
-                    }
-                }
+                Content = grid
             };
 
-            // Set Grid.Row properties correctly
-            Grid.SetRow((newSketchTab.Content as Grid).Children[0], 0);
-            Grid.SetRow((newSketchTab.Content as Grid).Children[1], 1);
-
-            // Add the new TabItem to the TabControl
             NotesTabControl.Items.Add(newSketchTab);
-
-            // Select the new TabItem
             NotesTabControl.SelectedItem = newSketchTab;
         }
     }

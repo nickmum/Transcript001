@@ -11,6 +11,9 @@ namespace Transcript001
         private Polyline currentLine;
         private bool isDrawing;
 
+        public Brush StrokeBrush { get; set; } = Brushes.Black;
+        public double StrokeThickness { get; set; } = 2;
+
         public SketchCanvas()
         {
             InitializeComponent();
@@ -21,11 +24,14 @@ namespace Transcript001
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 isDrawing = true;
+                DrawingCanvas.CaptureMouse();
                 currentLine = new Polyline
                 {
-                    Stroke = Brushes.Black,
-                    StrokeThickness = 2,
-                    StrokeLineJoin = PenLineJoin.Round
+                    Stroke = StrokeBrush,
+                    StrokeThickness = StrokeThickness,
+                    StrokeLineJoin = PenLineJoin.Round,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
                 };
                 currentLine.Points.Add(e.GetPosition(DrawingCanvas));
                 DrawingCanvas.Children.Add(currentLine);
@@ -43,6 +49,8 @@ namespace Transcript001
         private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
         {
             isDrawing = false;
+            currentLine = null;
+            DrawingCanvas.ReleaseMouseCapture();
         }
     }
 }

@@ -160,8 +160,13 @@
                         Padding="10,5"
                         Click="AddSketchTabButton_Click"/>
                 
-                <!-- Tab Control -->
+                <!-- Tab Control (double-click a tab header to rename it) -->
                 <TabControl x:Name="NotesTabControl" Grid.Row="1">
+                    <TabControl.Resources>
+                        <Style TargetType="TabItem">
+                            <EventSetter Event="MouseDoubleClick" Handler="TabItem_MouseDoubleClick"/>
+                        </Style>
+                    </TabControl.Resources>
                     <TabItem Header="Page 1">
                         <TextBox x:Name="NotesTextBox1" 
                                  VerticalScrollBarVisibility="Visible" 

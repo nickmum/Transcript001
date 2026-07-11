@@ -1,14 +1,14 @@
-﻿using HtmlAgilityPack;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using System.Xml;
-using System.Text.RegularExpressions;
 using System.Linq;
+using System.Globalization;
 
 namespace Transcript001
 {
@@ -52,36 +52,23 @@ namespace Transcript001
                 throw new Exception("Invalid YouTube URL");
             }
 
-            string htmlContent = await httpClient.GetStringAsync(url);
-            var htmlDocument = new HtmlDocument();
-            htmlDocument.LoadHtml(htmlContent);
-
-            string jsonContent = htmlDocument.DocumentNode.SelectSingleNode("//script[contains(text(), 'ytInitialPlayerResponse')]").InnerHtml;
-
-            var match = Regex.Match(jsonContent, @"ytInitialPlayerResponse\s*=\s*({.+?});");
-            if (!match.Success)
-            {
-                throw new Exception("Could not find ytInitialPlayerResponse in the page content");
-            }
-
-            jsonContent = match.Groups[1].Value;
-
-            var videoDetails = JObject.Parse(jsonContent);
-            string title = videoDetails["videoDetails"]["title"].ToString();
-            string author = videoDetails["videoDetails"]["author"].ToString();
+            var videoDetails = await GetPlayerResponseAsync(videoId);
+            string title = videoDetails.SelectToken("videoDetails.title")?.ToString() ?? "Unknown Title";
+            string author = videoDetails.SelectToken("videoDetails.author")?.ToString() ?? "Unknown Author";
 
             string fileName = NormalizeFileName($"{title} - {author}");
 
             List<SubtitleEntry> subtitles = new List<SubtitleEntry>();
 
-            if (videoDetails["captions"] != null && videoDetails["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"] != null)
+            var captionTracks = videoDetails.SelectToken("captions.playerCaptionsTracklistRenderer.captionTracks");
+            if (captionTracks != null)
             {
-                var captionTrack = videoDetails["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"]
-                    .FirstOrDefault(t => t["languageCode"].ToString() == "en");
+                var captionTrack = captionTracks
+                    .FirstOrDefault(t => t["languageCode"]?.ToString() == "en");
 
-                if (captionTrack != null)
+                string baseUrl = captionTrack?["baseUrl"]?.ToString();
+                if (!string.IsNullOrEmpty(baseUrl))
                 {
-                    string baseUrl = captionTrack["baseUrl"].ToString();
                     subtitles = await DownloadSubtitlesAsync(baseUrl, format);
                     File.WriteAllText(Path.Combine(outputDir, $"{fileName}.txt"), FormatSubtitles(subtitles, format));
                     LogMessage($"Saved subtitles for: {fileName}");
@@ -99,43 +86,114 @@ namespace Transcript001
             return (videoId, subtitles);
         }
 
-        private string ExtractVideoId(string url)
+        private async Task<JObject> GetPlayerResponseAsync(string videoId)
         {
-            var uri = new Uri(url);
-            var query = HttpUtility.ParseQueryString(uri.Query);
+            // Caption URLs scraped from the watch-page HTML now come back with empty
+            // bodies (YouTube requires a proof-of-origin token on those). The internal
+            // player API used by the mobile apps still returns working caption URLs.
+            var requestBody = new JObject
+            {
+                ["context"] = new JObject
+                {
+                    ["client"] = new JObject
+                    {
+                        ["clientName"] = "ANDROID",
+                        ["clientVersion"] = "20.10.38",
+                        ["androidSdkVersion"] = 30,
+                        ["hl"] = "en"
+                    }
+                },
+                ["videoId"] = videoId
+            };
 
-            if (uri.Host == "youtu.be")
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://www.youtube.com/youtubei/v1/player")
             {
-                return uri.Segments.LastOrDefault();
-            }
-            else if (query.AllKeys.Contains("v"))
+                Content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json")
+            };
+            request.Headers.TryAddWithoutValidation("User-Agent", "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip");
+
+            var response = await httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            string json = await response.Content.ReadAsStringAsync();
+            var playerResponse = JObject.Parse(json);
+
+            string playabilityStatus = playerResponse.SelectToken("playabilityStatus.status")?.ToString();
+            if (playabilityStatus != null && playabilityStatus != "OK")
             {
-                return query["v"];
+                string reason = playerResponse.SelectToken("playabilityStatus.reason")?.ToString() ?? playabilityStatus;
+                throw new Exception($"YouTube reports this video is not playable: {reason}");
             }
-            else
+
+            return playerResponse;
+        }
+
+        public static string ExtractVideoId(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
             {
                 return null;
             }
+
+            if (uri.Host == "youtu.be")
+            {
+                return uri.Segments.LastOrDefault()?.Trim('/');
+            }
+
+            var query = HttpUtility.ParseQueryString(uri.Query);
+            return query["v"];
         }
 
         private async Task<List<SubtitleEntry>> DownloadSubtitlesAsync(string url, string format)
         {
             string xmlContent = await httpClient.GetStringAsync(url);
+            if (string.IsNullOrWhiteSpace(xmlContent))
+            {
+                throw new Exception("YouTube returned an empty subtitle response.");
+            }
+
             XmlDocument doc = new XmlDocument();
             doc.LoadXml(xmlContent);
-            XmlNodeList nodes = doc.SelectNodes("/transcript/text");
 
             List<SubtitleEntry> subtitleEntries = new List<SubtitleEntry>();
 
-            foreach (XmlNode node in nodes)
+            // Older format: <transcript><text start="1.2" dur="3.4">  (times in seconds).
+            // Invariant culture: YouTube always uses "." as the decimal separator,
+            // regardless of the machine's regional settings.
+            XmlNodeList nodes = doc.SelectNodes("/transcript/text");
+            if (nodes != null && nodes.Count > 0)
             {
-                double start = Convert.ToDouble(node.Attributes["start"].Value);
-                double duration = Convert.ToDouble(node.Attributes["dur"].Value);
-                string text = HttpUtility.HtmlDecode(node.InnerText);
-                subtitleEntries.Add(new SubtitleEntry(start, duration, text));
+                foreach (XmlNode node in nodes)
+                {
+                    double start = double.Parse(node.Attributes["start"].Value, CultureInfo.InvariantCulture);
+                    double duration = double.Parse(node.Attributes["dur"]?.Value ?? "0", CultureInfo.InvariantCulture);
+                    AddSubtitleEntry(subtitleEntries, start, duration, node.InnerText);
+                }
+                return subtitleEntries;
+            }
+
+            // Newer format: <timedtext format="3"><body><p t="5160" d="3194">  (times in milliseconds).
+            nodes = doc.SelectNodes("/timedtext/body/p");
+            if (nodes != null)
+            {
+                foreach (XmlNode node in nodes)
+                {
+                    double start = double.Parse(node.Attributes["t"].Value, CultureInfo.InvariantCulture) / 1000.0;
+                    double duration = double.Parse(node.Attributes["d"]?.Value ?? "0", CultureInfo.InvariantCulture) / 1000.0;
+                    AddSubtitleEntry(subtitleEntries, start, duration, node.InnerText);
+                }
             }
 
             return subtitleEntries;
+        }
+
+        private static void AddSubtitleEntry(List<SubtitleEntry> entries, double start, double duration, string rawText)
+        {
+            string text = HttpUtility.HtmlDecode(rawText);
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                entries.Add(new SubtitleEntry(start, duration, text));
+            }
         }
 
         private string FormatSubtitles(List<SubtitleEntry> entries, string format)
