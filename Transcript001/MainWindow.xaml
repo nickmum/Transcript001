@@ -75,22 +75,46 @@
                             <RowDefinition Height="40"/>
                         </Grid.RowDefinitions>
 
-                        <ToggleButton x:Name="AutoScrollToggle" Grid.Row="0" 
-                                    HorizontalAlignment="Right"
-                                    Margin="0,0,0,5"
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
+                            <Button x:Name="ScreenshotButton"
                                     Padding="8,4"
-                                    Checked="AutoScrollToggle_Checked"
-                                    Unchecked="AutoScrollToggle_Unchecked">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Auto-scroll" Margin="0,0,5,0"/>
-                                <Path x:Name="ScrollIcon" 
-                                     Data="M7,14L12,9L17,14H7Z" 
-                                     Fill="{Binding Foreground, 
-                                     RelativeSource={RelativeSource AncestorType=ToggleButton}}" 
-                                     Width="12" 
-                                     Height="12"/>
-                            </StackPanel>
-                        </ToggleButton>
+                                    Margin="0,0,8,0"
+                                    Click="ScreenshotButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="ScreenshotButtonText" Text="Screenshot" Margin="0,0,5,0"/>
+                                    <Path Data="M4,7H6L8,5H16L18,7H20A2,2 0 0,1 22,9V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V9A2,2 0 0,1 4,7M12,9A4.5,4.5 0 0,0 7.5,13.5A4.5,4.5 0 0,0 12,18A4.5,4.5 0 0,0 16.5,13.5A4.5,4.5 0 0,0 12,9M12,11A2.5,2.5 0 0,1 14.5,13.5A2.5,2.5 0 0,1 12,16A2.5,2.5 0 0,1 9.5,13.5A2.5,2.5 0 0,1 12,11Z"
+                                         Fill="{Binding Foreground,
+                                         RelativeSource={RelativeSource AncestorType=Button}}"
+                                         Width="12"
+                                         Height="12"
+                                         Stretch="Uniform"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ExtractMathButton"
+                                    Padding="8,4"
+                                    Margin="0,0,8,0"
+                                    Click="ExtractMathButton_Click"
+                                    ToolTip="Screenshot the video and extract equations to Page 1 notes">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="ExtractMathButtonText" Text="Extract Math" Margin="0,0,5,0"/>
+                                    <TextBlock Text="√x" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Button>
+                            <ToggleButton x:Name="AutoScrollToggle"
+                                        Padding="8,4"
+                                        Checked="AutoScrollToggle_Checked"
+                                        Unchecked="AutoScrollToggle_Unchecked">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Auto-scroll" Margin="0,0,5,0"/>
+                                    <Path x:Name="ScrollIcon"
+                                         Data="M7,14L12,9L17,14H7Z"
+                                         Fill="{Binding Foreground,
+                                         RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                         Width="12"
+                                         Height="12"/>
+                                </StackPanel>
+                            </ToggleButton>
+                        </StackPanel>
 
                         <RichTextBox x:Name="TranscriptRichTextBox" Grid.Row="1" 
                                    IsReadOnly="False" 

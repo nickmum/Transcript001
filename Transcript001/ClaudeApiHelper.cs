@@ -39,15 +39,48 @@ namespace Transcript001
             return GetResponseFromClaude(new List<ChatMessage> { new ChatMessage("user", prompt) });
         }
 
-        public async Task<string> GetResponseFromClaude(IReadOnlyList<ChatMessage> conversation)
+        public Task<string> GetResponseFromClaude(IReadOnlyList<ChatMessage> conversation)
         {
-            var requestBody = new
+            return SendRequestAsync(new
             {
                 model = "claude-sonnet-5",
                 max_tokens = 8000,
                 messages = conversation.Select(m => new { role = m.Role, content = m.Content }).ToArray()
-            };
+            });
+        }
 
+        public Task<string> GetResponseFromClaude(string prompt, byte[] pngImageBytes)
+        {
+            return SendRequestAsync(new
+            {
+                model = "claude-sonnet-5",
+                max_tokens = 8000,
+                messages = new[]
+                {
+                    new
+                    {
+                        role = "user",
+                        content = new object[]
+                        {
+                            new
+                            {
+                                type = "image",
+                                source = new
+                                {
+                                    type = "base64",
+                                    media_type = "image/png",
+                                    data = Convert.ToBase64String(pngImageBytes)
+                                }
+                            },
+                            new { type = "text", text = prompt }
+                        }
+                    }
+                }
+            });
+        }
+
+        private async Task<string> SendRequestAsync(object requestBody)
+        {
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("https://api.anthropic.com/v1/messages", content);

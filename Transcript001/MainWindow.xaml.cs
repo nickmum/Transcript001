@@ -5,6 +5,7 @@ using Microsoft.Web.WebView2.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Text.Json;
 using System.Windows.Data;
@@ -29,6 +30,13 @@ namespace Transcript001
         private bool _autoScrollEnabled = true;
 
         private const string SummaryPromptTemplate = "Please analyze the following video transcript and provide:\r\n\r\nA concise 2-3 sentence overview that captures the video's main theme and purpose\r\nA comprehensive analysis that includes:\r\n\r\nKey arguments and main points\r\nSupporting evidence and examples provided\r\nAny methodologies or frameworks discussed\r\nNotable quotes or statements\r\nContext and background information provided\r\n\r\n\r\nA chronological breakdown of the video's structure:\r\n\r\nHow the content is organized\r\nMajor topic transitions\r\nTime spent on each main segment (if timestamps are available)\r\n\r\n\r\nCore takeaways, including:\r\n\r\nPrimary insights and conclusions\r\nPractical applications or recommendations\r\nCritical findings or revelations\r\nAreas for further exploration mentioned\r\n\r\n\r\nAdditional considerations:\r\n\r\nAny caveats or limitations mentioned\r\nOpposing viewpoints presented\r\nQuestions raised or left unanswered\r\nResources or references cited\r\n\r\n\r\n\r\nPlease ensure the summary:\r\n\r\nMaintains objective language\r\nPreserves the original context\r\nCaptures both explicit and implicit messages\r\nReflects the relative importance of different points\r\nIncludes specific examples to support main ideas\r\n\r\nVideo Transcript: \n\n";
+
+        private const string MathExtractionPrompt =
+            "Look at this screenshot from an educational video. Extract every mathematical " +
+            "equation or formula visible in the image and write each one on its own line as " +
+            "plain text using Unicode math symbols (e.g. ², √, ±, ×, ÷, π, Σ, ∫) — no LaTeX. " +
+            "If helpful, add a very brief label before an equation (e.g. 'Quadratic formula:'). " +
+            "If there are no equations in the image, respond with exactly: NO_EQUATIONS_FOUND";
 
         public MainWindow()
         {
@@ -62,6 +70,87 @@ namespace Transcript001
             VideoPlayer.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 PlayerHostName, PlayerDirectory, CoreWebView2HostResourceAccessKind.Allow);
             VideoPlayer.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+        }
+
+        private async void ScreenshotButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (VideoPlayer.CoreWebView2 == null)
+            {
+                StatusText.Text = "Video player not ready.";
+                return;
+            }
+
+            ScreenshotButton.IsEnabled = false;
+            try
+            {
+                using var stream = new MemoryStream();
+                await VideoPlayer.CoreWebView2.CapturePreviewAsync(
+                    CoreWebView2CapturePreviewImageFormat.Png, stream);
+                stream.Position = 0;
+                var frame = new PngBitmapDecoder(stream, BitmapCreateOptions.None,
+                    BitmapCacheOption.OnLoad).Frames[0];
+                Clipboard.SetImage(frame);
+
+                StatusText.Text = "Screenshot copied to clipboard";
+                ScreenshotButtonText.Text = "✓ Copied";
+                await Task.Delay(1500);
+                ScreenshotButtonText.Text = "Screenshot";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Screenshot failed: {ex.Message}";
+            }
+            finally
+            {
+                ScreenshotButton.IsEnabled = true;
+            }
+        }
+
+        private async void ExtractMathButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (VideoPlayer.CoreWebView2 == null)
+            {
+                StatusText.Text = "Video player not ready.";
+                return;
+            }
+
+            ExtractMathButton.IsEnabled = false;
+            ExtractMathButtonText.Text = "Extracting…";
+            StatusText.Text = "Extracting equations from screenshot...";
+            try
+            {
+                byte[] pngBytes;
+                using (var stream = new MemoryStream())
+                {
+                    await VideoPlayer.CoreWebView2.CapturePreviewAsync(
+                        CoreWebView2CapturePreviewImageFormat.Png, stream);
+                    pngBytes = stream.ToArray();
+                }
+
+                string result = await _apiHelper.GetResponseFromClaude(MathExtractionPrompt, pngBytes);
+
+                if (result.Trim() == "NO_EQUATIONS_FOUND")
+                {
+                    StatusText.Text = "No equations found in screenshot.";
+                    return;
+                }
+
+                NotesTextBox1.AppendText(
+                    (NotesTextBox1.Text.Length > 0 ? "\n\n" : "") +
+                    "— Equations from screenshot —\n" + result.Trim() + "\n");
+                NotesTextBox1.ScrollToEnd();
+                NotesTabControl.SelectedIndex = 0;
+                StatusText.Text = "Equations added to Page 1 notes.";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Equation extraction failed: {ex.Message}";
+            }
+            finally
+            {
+                ExtractMathButton.IsEnabled = true;
+                ExtractMathButtonText.Text = "Extract Math";
+            }
         }
 
         public async Task<string> ProcessVideoAsync(string url)
